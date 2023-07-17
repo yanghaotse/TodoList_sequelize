@@ -16,7 +16,14 @@ app.use(methodOverride('_method'))
 
 // 首頁
 app.get('/', (req, res) => {
-  res.send('hello world')
+  // .findAll()查詢多筆資料
+  return Todo.findAll({
+    // 多筆資料轉換成JS物件
+    raw: true,
+    nest: true
+  })
+  .then((todos) => { return res.render('index', { todos: todos}) })
+  .catch((error) => { return res.status(422).json(error) })
 })
 
 // 登入頁面
@@ -37,18 +44,42 @@ app.get('/users/register', (req, res) => {
 // 註冊送出
 app.post('/users/register', (req, res) => {
   const {name, email, password, confirmPassword} = req.body
-  User.create({
-    name,
-    email,
-    password
+  User.findOne({ where: {email} }).then(user => { //用條件查詢一筆資料
+    if(user){
+      console.log('User already exist')
+      return res.render('register', {
+        name,
+        email,
+        password,
+        confirmPassword
+      })
+    }
+    return bcrypt
+      .genSalt(10)
+      .then(salt => bcrypt.hash(password, salt))
+      .them(hash => User.create({
+        name,
+        email,
+        password: hash
+      }))
+      .then( user => res.redirect('/'))
+      .catch(error => console.log(error))
   })
-  .then( user => res.redirect('/'))
 })
 
 // 登出頁面
-app.get('users/logout', (req, res) => {
+app.get('/users/logout', (req, res) => {
   res.send('logout')
 })
+
+// detail頁面
+app.get('/todos/:id', (req, res) => {
+  const id = req.params.id
+  return Todo.findByPk(id) // 用id查詢一筆資料
+    .then((todo) => res.render('detail', {todo: todo.toJSON()}))
+    .catch(error => console.log(error))  
+})
+
 
 
 app.listen(PORT, () => {
