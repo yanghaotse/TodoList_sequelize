@@ -5,14 +5,33 @@ const bcrypt = require('bcryptjs')
 const app = express()
 const PORT = 3000
 const db = require('./models')
+const session = require('express-session')
+const usePassport = require('./config/passport') //載入passport設定檔，要寫在express-session之後
+const passport = require('passport')
 
 const Todo = db.Todo
 const User = db.User
 
 app.engine('hbs', exhbs({defaultLayout: 'main', extname: '.hbs'}))
 app.set('view engine', 'hbs')
+
+app.use(session({
+  secret: 'ThisIsMySecret',
+  resave: false,
+  saveUninitialized: true
+}))
 app.use(express.urlencoded({extended: true}))
 app.use(methodOverride('_method'))
+
+usePassport(app)
+
+
+app.post('/users/login', passport.authenticate('local', {
+  successRedirect: '/',
+  failureRedirect: '/users/login'
+}))
+
+
 
 // 首頁
 app.get('/', (req, res) => {
