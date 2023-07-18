@@ -1,6 +1,7 @@
 const express = require('express')
 const exhbs = require('express-handlebars')
 const methodOverride = require('method-override')
+const flash = require('connect-flash')
 const bcrypt = require('bcryptjs')
 const app = express()
 const PORT = 3000
@@ -25,7 +26,17 @@ app.use(methodOverride('_method'))
 
 usePassport(app)
 
+app.use(flash())
+app.use((req, res, next) => {
+  res.locals.isAuthenticated = req.isAuthenticated()
+  res.locals.user = req.user
+  res.locals.success_msg = req.flash('success_msg')
+  res.locals.warning_msg = req.flash('warning_msg')
+  next()
+})
 
+
+// 待移到auth.js
 app.post('/users/login', passport.authenticate('local', {
   successRedirect: '/',
   failureRedirect: '/users/login'
@@ -33,8 +44,10 @@ app.post('/users/login', passport.authenticate('local', {
 
 
 
+
 // 首頁
 app.get('/', (req, res) => {
+  // User.findByPk(req.user.id)
   // .findAll()查詢多筆資料
   return Todo.findAll({
     // 多筆資料轉換成JS物件
@@ -63,10 +76,29 @@ app.get('/users/register', (req, res) => {
 // 註冊送出
 app.post('/users/register', (req, res) => {
   const {name, email, password, confirmPassword} = req.body
-  User.findOne({ where: {email} }).then(user => { //用條件查詢一筆資料
+  const errors = []
+  
+  if(!name || !email || !passport || !confirmPassword){
+    errors.push({ message: '所有欄位都是必填'})
+  }
+  if(password !== confirmPassword){
+    errors.push({ message: '密碼與確認密碼不相符'})
+  }
+  if(errors.length){
+    return res.render('register', {
+      errors,
+      name,
+      email,
+      password,
+      confirmPassword
+    })
+  }
+
+  User.findOne({ where: { email} }).then(user => { //用條件查詢一筆資料
     if(user){
-      console.log('User already exist')
+      errors.push({ message: '這個 Email 已經註冊過了'})
       return res.render('register', {
+        errors,
         name,
         email,
         password,
@@ -76,7 +108,7 @@ app.post('/users/register', (req, res) => {
     return bcrypt
       .genSalt(10)
       .then(salt => bcrypt.hash(password, salt))
-      .them(hash => User.create({
+      .then(hash => User.create({
         name,
         email,
         password: hash
@@ -88,7 +120,10 @@ app.post('/users/register', (req, res) => {
 
 // 登出頁面
 app.get('/users/logout', (req, res) => {
-  res.send('logout')
+  req.logout()
+  req.flash('success_msg', '你已經成功登出。')
+  res.redirect('/users/login')
+
 })
 
 // detail頁面
